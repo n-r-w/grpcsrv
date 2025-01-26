@@ -7,20 +7,32 @@ import (
 	"net/http"
 	"strings"
 
-	grpc_runtime "github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
+	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/propagation"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 
 	gatewayfile "github.com/black-06/grpc-gateway-file"
 )
 
+// propagateTraceContext propagate trace from grpc-gateway to grpc. Without this magic, it doesn't work.
+func propagateTraceContext(ctx context.Context, _ *http.Request) metadata.MD {
+	carrier := propagation.MapCarrier{}
+	otel.GetTextMapPropagator().Inject(ctx, carrier)
+	return metadata.New(carrier)
+}
+
 func (s *Service) startHTTPGateway(ctx context.Context) error {
-	muxOptList := make([]grpc_runtime.ServeMuxOption, 0)
+	muxOptList := []runtime.ServeMuxOption{
+		runtime.WithMetadata(propagateTraceContext),
+	}
 
 	// Support for file upload/download through HTTP gateway
 	if s.httpFileSupport {
@@ -32,7 +44,7 @@ func (s *Service) startHTTPGateway(ctx context.Context) error {
 	}
 
 	if len(s.httpHeadersFromMetadata) > 0 {
-		muxOptList = append(muxOptList, grpc_runtime.WithForwardResponseOption(s.responseHTTPHeaderMatcher))
+		muxOptList = append(muxOptList, runtime.WithForwardResponseOption(s.responseHTTPHeaderMatcher))
 	}
 
 	// Whether to use default JSON marshaller
@@ -61,7 +73,7 @@ func (s *Service) startHTTPGateway(ctx context.Context) error {
 	s.grpcGatewayConn = conn
 
 	// Create gRPC multiplexer for gRPC gateway
-	mux := grpc_runtime.NewServeMux(muxOptList...)
+	mux := runtime.NewServeMux(muxOptList...)
 
 	// register handlers for gRPC gateway
 	for _, i := range s.grpcInitializers {
@@ -86,8 +98,7 @@ func (s *Service) startHTTPGateway(ctx context.Context) error {
 
 	// Support for logging, tracing and metrics
 	targetHandlers = s.setTraceRouteHTTPMiddleware(targetHandlers)
-	targetHandlers = s.setLoggerHTTPMiddleware(targetHandlers)
-	targetHandlers = s.setTraceIDHTTPMiddleware(targetHandlers)
+	targetHandlers = s.setCtxModifierHTTPMiddleware(targetHandlers)
 	targetHandlers = s.setCORSMiddleware(targetHandlers)
 
 	// Health check support
@@ -98,10 +109,18 @@ func (s *Service) startHTTPGateway(ctx context.Context) error {
 	// Metrics support
 	s.startHTTPMetricsServer(ctx)
 
+	// add tracing support to grpc-gateway
+	grpcgw := otelhttp.NewMiddleware("grpc-gateway", otelhttp.WithFilter(
+		func(r *http.Request) bool {
+			// ignore requests from prometheus otherwise they spam
+			return r.URL.Path != "/metrics"
+		},
+	))
+
 	// Start HTTP server
 	s.httpServer = &http.Server{
 		Addr:              s.endpoint.HTTP,
-		Handler:           otelhttp.NewMiddleware("grpc-gateway")(targetHandlers),
+		Handler:           grpcgw(targetHandlers),
 		ReadHeaderTimeout: s.httpReadHeaderTimeout,
 	}
 
@@ -141,8 +160,8 @@ func (s *Service) startHTTPMetricsServer(ctx context.Context) {
 }
 
 // get marshallers for gRPC gateway.
-func (s *Service) getJSONMarshallers() ([]grpc_runtime.ServeMuxOption, error) {
-	var marshallers []grpc_runtime.ServeMuxOption
+func (s *Service) getJSONMarshallers() ([]runtime.ServeMuxOption, error) {
+	var marshallers []runtime.ServeMuxOption
 
 	needDefaultJSONMarshaller := true
 	const (
@@ -151,7 +170,7 @@ func (s *Service) getJSONMarshallers() ([]grpc_runtime.ServeMuxOption, error) {
 	)
 	if len(s.httpMarshallers) > 0 {
 		for contentType, marshaler := range s.httpMarshallers {
-			marshallers = append(marshallers, grpc_runtime.WithMarshalerOption(contentType, marshaler))
+			marshallers = append(marshallers, runtime.WithMarshalerOption(contentType, marshaler))
 		}
 
 		if _, ok := s.httpMarshallers[jsonContentType]; ok {
@@ -167,8 +186,8 @@ func (s *Service) getJSONMarshallers() ([]grpc_runtime.ServeMuxOption, error) {
 
 	if needDefaultJSONMarshaller {
 		marshallers = append(marshallers,
-			grpc_runtime.WithMarshalerOption(jsonContentType,
-				&grpc_runtime.JSONPb{
+			runtime.WithMarshalerOption(jsonContentType,
+				&runtime.JSONPb{
 					MarshalOptions: protojson.MarshalOptions{
 						UseEnumNumbers:    false,
 						AllowPartial:      false,
@@ -189,7 +208,7 @@ func (s *Service) getJSONMarshallers() ([]grpc_runtime.ServeMuxOption, error) {
 
 // support for headers from metadata in response.
 func (s *Service) responseHTTPHeaderMatcher(ctx context.Context, w http.ResponseWriter, _ proto.Message) error {
-	md, ok := grpc_runtime.ServerMetadataFromContext(ctx)
+	md, ok := runtime.ServerMetadataFromContext(ctx)
 	if !ok {
 		return nil
 	}

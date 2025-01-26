@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
+	"github.com/n-r-w/ctxlog"
 	"github.com/rs/cors"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -23,13 +24,13 @@ const (
 	// MaxSpanBytes maximum message size in bytes that will be sent in the span.
 	MaxSpanBytes = 64000
 
-	// traceIDKey key for traceID in response metadata.
-	traceIDKey = "x-trace-id"
-	// traceDebugKey key for debug information in response metadata.
+	// TraceIDKey key for traceID in response metadata.
+	TraceIDKey = "x-trace-id"
+	// TraceDebugKey key for debug information in response metadata.
 	// If value equals 1, the entire request and response will be logged.
-	traceDebugKey = "x-trace-debug"
-	// traceDebugKeyValue value for traceDebugKey.
-	traceDebugKeyValue = "1"
+	TraceDebugKey = "x-trace-debug"
+	// TraceDebugKeyValue value for traceDebugKey.
+	TraceDebugKeyValue = "1"
 )
 
 // TraceIDFromContext returns traceID from context.
@@ -38,6 +39,8 @@ func (s *Service) traceIDFromContext(ctx context.Context) (string, bool) {
 	if span.HasTraceID() {
 		return span.TraceID().String(), true
 	}
+
+	ctxlog.Debug(ctx, "traceID not found in context")
 
 	return "", false
 }
@@ -49,12 +52,12 @@ func (s *Service) callServerInterceptor(ctx context.Context, req any, info *grpc
 	// add traceID to response metadata
 	traceID, traceOK := s.traceIDFromContext(ctx)
 	if traceOK {
-		header := metadata.Pairs(traceIDKey, traceID)
+		header := metadata.Pairs(TraceIDKey, traceID)
 		_ = grpc.SetTrailer(ctx, header)
 	}
 
 	// add additional data to context
-	ctx = s.ctxUnaryModifier(ctx, req, info, handler, extractRemoteAddr(ctx))
+	ctx = s.ctxUnaryModifier(ctx, req, info, handler, extractRemoteAddr(ctx), traceID)
 
 	resp, err = handler(ctx, req)
 	if err != nil {
@@ -68,14 +71,24 @@ func (s *Service) callServerInterceptor(ctx context.Context, req any, info *grpc
 func (s *Service) callServerStreamInterceptor(srv any, ss grpc.ServerStream, info *grpc.StreamServerInfo,
 	handler grpc.StreamHandler,
 ) error {
+	ctx := ss.Context()
+
 	wrapped := grpc_middleware.WrapServerStream(ss)
 
-	// add additional data to context
-	wrapped.WrappedContext = s.ctxStreamModifier(ss.Context(), info, handler, extractRemoteAddr(ss.Context()))
+	// add traceID to response metadata
+	traceID, traceOK := s.traceIDFromContext(ctx)
+	if traceOK {
+		header := metadata.Pairs(TraceIDKey, traceID)
+		wrapped.SetTrailer(header)
+	}
 
+	// add additional data to context
+	ctx = s.ctxStreamModifier(ctx, info, handler, extractRemoteAddr(ctx), traceID)
+
+	wrapped.WrappedContext = ctx
 	err := handler(srv, wrapped)
 	if err != nil {
-		s.logger.Debug(ss.Context(), "grpc server stream error", "error", err)
+		s.logger.Debug(ctx, "grpc server stream error", "error", err)
 	}
 
 	return err
@@ -88,7 +101,7 @@ func (s *Service) tracingDataServerInterceptor(ctx context.Context, req any, inf
 	// check for debug header requirement
 	needDebug := false
 	if md, ok := metadata.FromIncomingContext(ctx); ok {
-		if v := md.Get(traceDebugKey); len(v) > 0 && v[0] == traceDebugKeyValue {
+		if v := md.Get(TraceDebugKey); len(v) > 0 && v[0] == TraceDebugKeyValue {
 			needDebug = true
 		}
 	}
@@ -191,20 +204,15 @@ func tagRemoteAddr(ctx context.Context, span trace.Span) {
 }
 
 // adds traceID to HTTP response metadata.
-func (s *Service) setTraceIDHTTPMiddleware(next http.Handler) http.Handler {
+func (s *Service) setCtxModifierHTTPMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if traceID, traceOK := s.traceIDFromContext(r.Context()); traceOK {
-			w.Header().Set(traceIDKey, traceID)
+		ctx := r.Context()
+		traceID, traceOK := s.traceIDFromContext(ctx)
+		if traceOK {
+			w.Header().Set(TraceIDKey, traceID)
 		}
 
-		next.ServeHTTP(w, r)
-	})
-}
-
-func (s *Service) setLoggerHTTPMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// add additional data to context
-		ctx := s.ctxHTTPModifier(r.Context(), r)
+		ctx = s.ctxHTTPModifier(ctx, r, traceID)
 
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
@@ -213,9 +221,13 @@ func (s *Service) setLoggerHTTPMiddleware(next http.Handler) http.Handler {
 // setTraceRouteHTTPMiddleware adds request URI to trace attributes taken from context.
 func (s *Service) setTraceRouteHTTPMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		span := trace.SpanFromContext(r.Context())
-		span.SetAttributes(attribute.String("http.request.uri", r.RequestURI))
-		ctx := trace.ContextWithSpan(r.Context(), span)
+		ctx := r.Context()
+
+		span := trace.SpanFromContext(ctx)
+		if span.SpanContext().IsValid() {
+			span.SetAttributes(attribute.String("http.request.uri", r.RequestURI))
+			ctx = trace.ContextWithSpan(r.Context(), span)
+		}
 
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
