@@ -86,7 +86,7 @@ func New(ctx context.Context, grpcSevices []IGRPCInitializer, opt ...Option) *Se
 
 	if s.ctxUnaryModifier == nil {
 		s.ctxUnaryModifier = func(
-			ctx context.Context, _ any, _ *grpc.UnaryServerInfo, _ grpc.UnaryHandler, _ string,
+			ctx context.Context, _ any, _ *grpc.UnaryServerInfo, _ grpc.UnaryHandler, _, _ string,
 		) context.Context {
 			return ctx
 		}
@@ -94,14 +94,14 @@ func New(ctx context.Context, grpcSevices []IGRPCInitializer, opt ...Option) *Se
 
 	if s.ctxStreamModifier == nil {
 		s.ctxStreamModifier = func(
-			ctx context.Context, _ *grpc.StreamServerInfo, _ grpc.StreamHandler, _ string,
+			ctx context.Context, _ *grpc.StreamServerInfo, _ grpc.StreamHandler, _, _ string,
 		) context.Context {
 			return ctx
 		}
 	}
 
 	if s.ctxHTTPModifier == nil {
-		s.ctxHTTPModifier = func(ctx context.Context, _ *http.Request) context.Context {
+		s.ctxHTTPModifier = func(ctx context.Context, _ *http.Request, _ string) context.Context {
 			return ctx
 		}
 	}
@@ -120,6 +120,7 @@ func New(ctx context.Context, grpcSevices []IGRPCInitializer, opt ...Option) *Se
 }
 
 // Info returns information about the service.
+// Implements bootstrap.IService interface.
 func (s *Service) Info() bootstrap.Info {
 	return bootstrap.Info{
 		Name:          s.name,
@@ -128,6 +129,7 @@ func (s *Service) Info() bootstrap.Info {
 }
 
 // Start starts the service.
+// Implements bootstrap.IService interface.
 func (s *Service) Start(ctx context.Context) error {
 	ctx = context.WithoutCancel(ctx) // ignore startup timeout since context will go to goroutine
 
@@ -152,6 +154,7 @@ func (s *Service) Start(ctx context.Context) error {
 }
 
 // Stop stops the service. Stop timeout is set through context.
+// Implements bootstrap.IService interface.
 func (s *Service) Stop(ctx context.Context) error {
 	var wg sync.WaitGroup
 

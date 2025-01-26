@@ -15,12 +15,12 @@ import (
 type (
 	// CtxUnaryModifier function for adding additional data to context when calling unary handler.
 	CtxUnaryModifier func(ctx context.Context, req any, info *grpc.UnaryServerInfo,
-		handler grpc.UnaryHandler, remoteAddr string) context.Context
+		handler grpc.UnaryHandler, remoteAddr, traceID string) context.Context
 	// CtxStreamModifier function for adding additional data to context when calling stream handler.
 	CtxStreamModifier func(ctx context.Context, info *grpc.StreamServerInfo,
-		handler grpc.StreamHandler, remoteAddr string) context.Context
+		handler grpc.StreamHandler, remoteAddr, traceID string) context.Context
 	// CtxHTTPModifier function for adding additional data to context when processing HTTP request.
-	CtxHTTPModifier func(ctx context.Context, r *http.Request) context.Context
+	CtxHTTPModifier func(ctx context.Context, r *http.Request, traceID string) context.Context
 	// RegisterHealthCheckEndpoints function for registering health check endpoints.
 	RegisterHealthCheckEndpoints func(ctx context.Context, mux *grpc_runtime.ServeMux) error
 )
@@ -172,7 +172,7 @@ func WithRegisterHealthCheckEndpoints(registerHealthCheckEndpoints RegisterHealt
 	}
 }
 
-// WithSanitizeKeys sets list of keys whose values will be replaced with "sanitized" in logs.
+// WithSanitizeKeys sets list of keys whose values will be replaced with "sanitized" in logs and spans.
 // Default: password, token, refreshToken, accessToken.
 func WithSanitizeKeys(keys ...string) Option {
 	return func(s *Service) {

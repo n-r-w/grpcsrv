@@ -10,7 +10,6 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/n-r-w/bootstrap"
@@ -31,53 +30,6 @@ func New(ctx context.Context, opts ...Option) *Dialer {
 	}
 
 	return d
-}
-
-// WithCredentials sets TLS configuration for connecting to gRPC server.
-// If not set, insecure.NewCredentials() is used.
-func WithCredentials(creds credentials.TransportCredentials) Option {
-	return func(g *targetInfo) {
-		g.creds = creds
-	}
-}
-
-// WithUnaryInterceptors sets list of UnaryClientInterceptor for gRPC client. Optional.
-func WithUnaryInterceptors(interceptors ...grpc.UnaryClientInterceptor) Option {
-	return func(g *targetInfo) {
-		g.unaryInterceptors = interceptors
-	}
-}
-
-// WithStreamInterceptors sets list of StreamClientInterceptor for gRPC client. Optional.
-func WithStreamInterceptors(interceptors ...grpc.StreamClientInterceptor) Option {
-	return func(g *targetInfo) {
-		g.streamInterceptors = interceptors
-	}
-}
-
-// WithRetryOptions sets list of CallOption for gRPC client.
-// Use either WithRetryOptions or WithClientDefaultRetryOptions.
-// If neither is set, default settings are used: 3 retries, 1 second between retries.
-func WithRetryOptions(opts ...grpc_retry.CallOption) Option {
-	return func(g *targetInfo) {
-		g.retryOpts = opts
-	}
-}
-
-// WithDefaultRetryOptions sets default retry parameters for gRPC client.
-// Use either WithClientRetryOptions or WithDefaultRetryOptions.
-// If neither is set, default settings are used:
-// maxRetries: 3 retries
-// requestTimeout: maximum 10 seconds per request
-// retryTimeout: 1 second between retries.
-func WithDefaultRetryOptions(maxRetries int, requestTimeout, retryTimeout time.Duration) Option {
-	return func(g *targetInfo) {
-		g.retryOpts = nil
-
-		g.maxRetries = maxRetries
-		g.requestTimeout = requestTimeout
-		g.retryTimeout = retryTimeout
-	}
 }
 
 // Dial connects to gRPC server.
@@ -180,6 +132,7 @@ func (d *Dialer) dialHelper(
 }
 
 // Info returns information.
+// Implements bootstrap.IService interface.
 func (d *Dialer) Info() bootstrap.Info {
 	return bootstrap.Info{
 		Name: "grpc dialer",
@@ -187,11 +140,13 @@ func (d *Dialer) Info() bootstrap.Info {
 }
 
 // Start does nothing since gRPC server connection is established in Dial.
+// Implements bootstrap.IService interface.
 func (d *Dialer) Start(_ context.Context) error {
 	return nil
 }
 
 // Stop disconnects from gRPC servers.
+// Implements bootstrap.IService interface.
 func (d *Dialer) Stop(_ context.Context) error {
 	var err error
 	for _, conn := range d.connections {
@@ -203,26 +158,4 @@ func (d *Dialer) Stop(_ context.Context) error {
 	}
 
 	return err
-}
-
-type targetInfo struct {
-	creds              credentials.TransportCredentials
-	unaryInterceptors  []grpc.UnaryClientInterceptor
-	streamInterceptors []grpc.StreamClientInterceptor
-
-	retryOpts      []grpc_retry.CallOption
-	maxRetries     int
-	requestTimeout time.Duration // request timeout
-	retryTimeout   time.Duration // retry timeout
-	logger         ctxlog.ILogger
-}
-
-// Option - function for configuring targetInfo.
-type Option func(*targetInfo)
-
-// WithLogger sets logger for dialer.
-func WithLogger(logger ctxlog.ILogger) Option {
-	return func(g *targetInfo) {
-		g.logger = logger
-	}
 }
