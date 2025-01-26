@@ -22,11 +22,11 @@ func main() {
 		ctxlog.WithLevel(slog.LevelDebug),
 	)
 
-	// Create the greeter service
-	initializer := srvimpl.NewGreeterInitializer(&srvimpl.GreeterService{})
-
 	// wrap logger for other package usage
 	loggerWrapper := ctxlog.NewWrapper()
+
+	// Create the greeter service
+	initializer := srvimpl.NewGreeterInitializer(&srvimpl.GreeterService{})
 
 	// Configure and create the gRPC server
 	srv := grpcsrv.New(

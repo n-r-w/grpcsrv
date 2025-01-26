@@ -19,13 +19,12 @@ import (
 
 // Dialer - manages connections to gRPC server. Implements IService interface.
 type Dialer struct {
-	logger      ctxlog.ILogger
 	connections map[string]*grpc.ClientConn
 	opts        []Option
 }
 
 // New creates a new Dialer.
-func New(ctx context.Context, logger ctxlog.ILogger, opts ...Option) *Dialer {
+func New(ctx context.Context, opts ...Option) *Dialer {
 	d := &Dialer{
 		connections: make(map[string]*grpc.ClientConn),
 		opts:        opts,
@@ -115,6 +114,7 @@ func (d *Dialer) dialHelper(
 		maxRetries:     defaultMaxRetries,
 		requestTimeout: defaultRequestTimeout,
 		retryTimeout:   defaultRetryTimeout,
+		logger:         ctxlog.NewStubWrapper(),
 	}
 
 	for _, opt := range d.opts {
@@ -135,7 +135,7 @@ func (d *Dialer) dialHelper(
 			grpc_retry.WithCodes(append(grpc_retry.DefaultRetriableCodes, codes.Unknown, codes.Internal)...),
 			grpc_retry.WithPerRetryTimeout(t.requestTimeout),
 			grpc_retry.WithBackoffContext(func(ctx context.Context, attempt uint) time.Duration {
-				d.logger.Warn(ctx, "grpc client retry",
+				t.logger.Warn(ctx, "grpc client retry",
 					"target", name,
 					"attempt", attempt)
 				return t.retryTimeout
@@ -151,14 +151,14 @@ func (d *Dialer) dialHelper(
 
 	if t.unaryInterceptors == nil {
 		t.unaryInterceptors = []grpc.UnaryClientInterceptor{
-			d.clientInterceptor,
+			d.getClientInterceptor(t.logger),
 			grpc_retry.UnaryClientInterceptor(t.retryOpts...),
 		}
 	}
 
 	if t.streamInterceptors == nil {
 		t.streamInterceptors = []grpc.StreamClientInterceptor{
-			d.clientStreamInterceptor,
+			d.getStreamClientInterceptor(t.logger),
 			grpc_retry.StreamClientInterceptor(t.retryOpts...),
 		}
 	}
@@ -214,7 +214,15 @@ type targetInfo struct {
 	maxRetries     int
 	requestTimeout time.Duration // request timeout
 	retryTimeout   time.Duration // retry timeout
+	logger         ctxlog.ILogger
 }
 
 // Option - function for configuring targetInfo.
 type Option func(*targetInfo)
+
+// WithLogger sets logger for dialer.
+func WithLogger(logger ctxlog.ILogger) Option {
+	return func(g *targetInfo) {
+		g.logger = logger
+	}
+}
