@@ -106,6 +106,11 @@ func (s *Service) startHTTPGateway(ctx context.Context) error {
 		return err
 	}
 
+	// Register additional HTTP endpoints
+	if err = s.registerHTTPEndpoints(ctx, mux); err != nil {
+		return err
+	}
+
 	// Metrics support
 	s.startHTTPMetricsServer(ctx)
 

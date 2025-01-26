@@ -29,7 +29,10 @@ type Service struct {
 	grpcInitializers      []IGRPCInitializer
 	grpcOptions           []grpc.ServerOption
 	endpoint              Endpoint
+	
 	healthCheckHandler    IHealther
+	livenessHandlerPath   string
+	readinessHandlerPath  string
 	// list of keys whose values will be replaced with "sanitized" in logs.
 	sanitizeKeys []string
 
@@ -55,8 +58,8 @@ type Service struct {
 	ctxUnaryModifier  CtxUnaryModifier
 	ctxStreamModifier CtxStreamModifier
 	ctxHTTPModifier   CtxHTTPModifier
-	// Function for registering health check endpoints.
-	registerHealthCheckEndpoints RegisterHealthCheckEndpoints
+	// Function for registering additional http endpoints
+	registerHTTPEndpoints RegisterHTTPEndpoints
 
 	grpcGatewayConn *grpc.ClientConn
 	grpcServer      *grpc.Server
@@ -106,8 +109,8 @@ func New(ctx context.Context, grpcSevices []IGRPCInitializer, opt ...Option) *Se
 		}
 	}
 
-	if s.registerHealthCheckEndpoints == nil {
-		s.registerHealthCheckEndpoints = func(ctx context.Context, _ *grpc_runtime.ServeMux) error {
+	if s.registerHTTPEndpoints == nil {
+		s.registerHTTPEndpoints = func(ctx context.Context, _ *grpc_runtime.ServeMux) error {
 			return nil
 		}
 	}

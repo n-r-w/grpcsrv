@@ -21,8 +21,8 @@ type (
 		handler grpc.StreamHandler, remoteAddr, traceID string) context.Context
 	// CtxHTTPModifier function for adding additional data to context when processing HTTP request.
 	CtxHTTPModifier func(ctx context.Context, r *http.Request, traceID string) context.Context
-	// RegisterHealthCheckEndpoints function for registering health check endpoints.
-	RegisterHealthCheckEndpoints func(ctx context.Context, mux *grpc_runtime.ServeMux) error
+	// RegisterHTTPEndpoints function for registering additional endpoints.
+	RegisterHTTPEndpoints func(ctx context.Context, mux *grpc_runtime.ServeMux) error
 )
 
 // Option option for service initialization.
@@ -63,9 +63,21 @@ func WithGRPCOptions(options ...grpc.ServerOption) Option {
 }
 
 // WithHealthCheck sets handler for service health checks.
-func WithHealthCheck(handler IHealther) Option {
+func WithHealthCheck(handler IHealther, livenessHandlerPath, readinessHandlerPath string) Option {
 	return func(s *Service) {
+		if handler != nil && (livenessHandlerPath == "" || readinessHandlerPath == "") {
+			panic("livenessHandlerPath and readinessHandlerPath must not be empty")
+		}
+
 		s.healthCheckHandler = handler
+
+		if s.healthCheckHandler == nil {
+			s.livenessHandlerPath = ""
+			s.readinessHandlerPath = ""
+		} else {
+			s.livenessHandlerPath = livenessHandlerPath
+			s.readinessHandlerPath = readinessHandlerPath
+		}
 	}
 }
 
@@ -165,10 +177,10 @@ func WithContextModifiers(
 	}
 }
 
-// WithRegisterHealthCheckEndpoints registers endpoints for service health checks.
-func WithRegisterHealthCheckEndpoints(registerHealthCheckEndpoints RegisterHealthCheckEndpoints) Option {
+// WithRegisterHTTPEndpoints registers additional HTTP endpoints.
+func WithRegisterHTTPEndpoints(registerHealthCheckEndpoints RegisterHTTPEndpoints) Option {
 	return func(s *Service) {
-		s.registerHealthCheckEndpoints = registerHealthCheckEndpoints
+		s.registerHTTPEndpoints = registerHealthCheckEndpoints
 	}
 }
 

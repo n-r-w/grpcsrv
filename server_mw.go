@@ -3,11 +3,13 @@ package grpcsrv
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net"
 	"net/http"
 	"strings"
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
+	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/n-r-w/ctxlog"
 	"github.com/rs/cors"
 	"go.opentelemetry.io/otel"
@@ -231,6 +233,30 @@ func (s *Service) setTraceRouteHTTPMiddleware(next http.Handler) http.Handler {
 
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
+}
+
+func (s *Service) registerHealthCheckEndpoints(ctx context.Context, mux *runtime.ServeMux) error {
+	if s.healthCheckHandler != nil {
+		if err := mux.HandlePath(http.MethodGet, s.livenessHandlerPath,
+			func(w http.ResponseWriter, r *http.Request, _ map[string]string) {
+				s.healthCheckHandler.LiveEndpoint(w, r)
+			},
+		); err != nil {
+			return fmt.Errorf("%s. failed to register liveness handler: %w", s.name, err)
+		}
+
+		if err := mux.HandlePath(http.MethodGet, s.readinessHandlerPath,
+			func(w http.ResponseWriter, r *http.Request, _ map[string]string) {
+				s.healthCheckHandler.ReadyEndpoint(w, r)
+			},
+		); err != nil {
+			return fmt.Errorf("%s. failed to register readiness handler: %w", s.name, err)
+		}
+
+		s.logger.Info(ctx, "health check endpoints registered")
+	}
+
+	return nil
 }
 
 // setCORSMiddleware adds CORS headers.
