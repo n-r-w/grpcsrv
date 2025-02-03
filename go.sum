@@ -66,8 +66,8 @@ github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 h1:C3w9PqII01/Oq
 github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822/go.mod h1:+n7T8mK8HuQTcFwEeznm/DIxMOiR9yIdICNftLE1DvQ=
 github.com/n-r-w/bootstrap v1.0.2-0.20250125184643-a00a8ba2ab1b h1:DQvg+7X28qI4ThcrdKMP2bo8tpZxBlFATMXc0GKAmPI=
 github.com/n-r-w/bootstrap v1.0.2-0.20250125184643-a00a8ba2ab1b/go.mod h1:b91IQT2BBrUxYx+Osf8KxbD5uoFDDiAApGVQEG3Y+wo=
-github.com/n-r-w/ctxlog v1.0.2 h1:n6MurAkYXV03O34ulUsXaZSHrx250hQme9JTl8OeExs=
-github.com/n-r-w/ctxlog v1.0.2/go.mod h1:5Xdj8edMhFfuan/+KiKcWWPeQooTcRnzhh8+bxEmZ94=
+github.com/n-r-w/ctxlog v1.0.3 h1:ZL+3CIhiSFIjT6HHu3bwLgsl9zPWJsdcdDJLtBZNqRY=
+github.com/n-r-w/ctxlog v1.0.3/go.mod h1:MZ7sxKTgLXL1pFrPjScPEXhqL1bv/qhqHhpjM1MVdgw=
 github.com/opentracing/opentracing-go v1.1.0/go.mod h1:UkNAQd3GIcIGf0SeVgPpRdFStlNbqXla1AfSYxPUl2o=
 github.com/pkg/errors v0.8.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
