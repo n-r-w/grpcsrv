@@ -29,10 +29,10 @@ type Service struct {
 	grpcInitializers      []IGRPCInitializer
 	grpcOptions           []grpc.ServerOption
 	endpoint              Endpoint
-	
-	healthCheckHandler    IHealther
-	livenessHandlerPath   string
-	readinessHandlerPath  string
+
+	healthCheckHandler   IHealther
+	livenessHandlerPath  string
+	readinessHandlerPath string
 	// list of keys whose values will be replaced with "sanitized" in logs.
 	sanitizeKeys []string
 
