@@ -54,7 +54,8 @@ func main() {
 			GRPC: ":50051",
 			HTTP: ":50052",
 		}),
-		grpcsrv.WithPprof(),
+		grpcsrv.WithPprof(":50053"),
+		grpcsrv.WithMetrics(":50054"),
 		// grpcsrv.WithRecover(), // enable panic recovery
 	)
 	srv := grpcsrv.New(ctx, []grpcsrv.IGRPCInitializer{initializer}, opts...)

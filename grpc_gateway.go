@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
@@ -86,11 +85,6 @@ func (s *Service) startHTTPGateway(ctx context.Context) error {
 
 	var targetHandlers http.Handler = mux
 
-	// pprof support
-	if s.pprofEnabled {
-		targetHandlers = pprofHandler(targetHandlers)
-	}
-
 	// Panic recovery support
 	if s.recoverEnabled {
 		targetHandlers = s.recoverHTTP(targetHandlers)
@@ -110,9 +104,6 @@ func (s *Service) startHTTPGateway(ctx context.Context) error {
 	if err = s.registerHTTPEndpoints(ctx, mux); err != nil {
 		return err
 	}
-
-	// Metrics support
-	s.startHTTPMetricsServer(ctx)
 
 	// add tracing support to grpc-gateway
 	grpcgw := otelhttp.NewMiddleware("grpc-gateway", otelhttp.WithFilter(
@@ -138,30 +129,6 @@ func (s *Service) startHTTPGateway(ctx context.Context) error {
 	}()
 
 	return nil
-}
-
-// startHTTPMetricsServer starts HTTP server for serving Prometheus metrics.
-func (s *Service) startHTTPMetricsServer(ctx context.Context) {
-	metricsHandler := http.NewServeMux()
-	metricsHandler.Handle("/metrics", promhttp.Handler())
-
-	if s.httpMetricsPort != "" && metricsHandler != nil {
-		s.logger.Info(ctx, "metrics server started", "port", s.httpMetricsPort)
-
-		s.httpMetricsServer = &http.Server{
-			Addr:              s.httpMetricsPort,
-			Handler:           metricsHandler,
-			ReadHeaderTimeout: s.httpReadHeaderTimeout,
-		}
-
-		s.wg.Add(1)
-		go func() {
-			defer s.wg.Done()
-			if err := s.httpMetricsServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-				panic(s.name + ". failed to listen and serve metrics HTTP server: " + err.Error())
-			}
-		}()
-	}
 }
 
 // get marshallers for gRPC gateway.

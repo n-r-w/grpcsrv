@@ -37,7 +37,8 @@ type Service struct {
 	sanitizeKeys []string
 
 	recoverEnabled bool
-	pprofEnabled   bool
+
+	pprofEndpoint string
 
 	httpFileSupport         bool
 	httpDialOptions         []grpc.DialOption
@@ -45,11 +46,12 @@ type Service struct {
 	httpHeadersFromMetadata []string
 	corsOptions             optional.Option[cors.Options]
 
-	wg         sync.WaitGroup
-	httpServer *http.Server
+	wg          sync.WaitGroup
+	httpServer  *http.Server
+	pprofServer *http.Server
 
 	// used for serving prometheus metrics (if enabled)
-	httpMetricsPort   string
+	metricsEndpoint   string
 	httpMetricsServer *http.Server
 
 	// function for panic logging (logging only, not recovery)
@@ -76,7 +78,6 @@ func New(ctx context.Context, grpcSevices []IGRPCInitializer, opt ...Option) *Se
 			GRPC: ":50051",
 			HTTP: ":50052",
 		},
-		httpMetricsPort: ":50053",
 	}
 
 	for _, o := range opt {
@@ -142,6 +143,16 @@ func (s *Service) Start(ctx context.Context) error {
 		return err
 	}
 
+	// start pprof server if enabled
+	if err := s.startPProfServer(ctx); err != nil {
+		return err
+	}
+
+	// start metrics server if enabled
+	if err := s.startMetricsServer(ctx); err != nil {
+		return err
+	}
+
 	// start HTTP gateway
 	if httpRequired {
 		if err := s.startHTTPGateway(ctx); err != nil {
@@ -177,6 +188,21 @@ func (s *Service) Stop(ctx context.Context) error {
 			if err != nil {
 				s.logger.Error(ctx, "failed to close grpc gateway connection", "error", err)
 			}
+		}()
+	}
+
+	if s.pprofServer != nil {
+		wg.Add(1)
+
+		go func() {
+			defer wg.Done()
+
+			s.logger.Info(ctx, "gracefully stopping pprof server")
+			err := s.pprofServer.Shutdown(ctx)
+			if err != nil {
+				s.logger.Error(ctx, "failed to stop pprof server", "error", err)
+			}
+			s.logger.Info(ctx, "pprof server stopped gracefully")
 		}()
 	}
 

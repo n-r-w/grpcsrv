@@ -136,17 +136,17 @@ func WithCORSOptions(options cors.Options) Option {
 	}
 }
 
-// WithMetricsPort sets port for metrics (prometheus).
-func WithMetricsPort(port string) Option {
+// WithMetrics sets endpoint for prometheus metrics server.
+func WithMetrics(endpoint string) Option {
 	return func(s *Service) {
-		s.httpMetricsPort = port
+		s.metricsEndpoint = endpoint
 	}
 }
 
 // WithPprof enables pprof support.
-func WithPprof() Option {
+func WithPprof(endpoint string) Option {
 	return func(s *Service) {
-		s.pprofEnabled = true
+		s.pprofEndpoint = endpoint
 	}
 }
 
