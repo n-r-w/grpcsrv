@@ -2,10 +2,11 @@ package grpcsrv
 
 import (
 	"context"
+	"fmt"
+	"net"
 	"net/http"
 	http_pprof "net/http/pprof"
 	"runtime/pprof"
-	"strings"
 
 	"google.golang.org/grpc"
 )
@@ -52,19 +53,43 @@ func newStreamWithContext(ctx context.Context, stream grpc.ServerStream) grpc.Se
 	}
 }
 
-func pprofHandler(next http.Handler) http.Handler {
+// getPProfHandler returns an http.Handler for serving pprof endpoints.
+func getPProfHandler() http.Handler {
 	debugMux := http.NewServeMux()
 	debugMux.Handle("/debug/pprof/", http.HandlerFunc(http_pprof.Index))
 	debugMux.Handle("/debug/pprof/cmdline", http.HandlerFunc(http_pprof.Cmdline))
 	debugMux.Handle("/debug/pprof/profile", http.HandlerFunc(http_pprof.Profile))
 	debugMux.Handle("/debug/pprof/symbol", http.HandlerFunc(http_pprof.Symbol))
 	debugMux.Handle("/debug/pprof/trace", http.HandlerFunc(http_pprof.Trace))
+	return debugMux
+}
 
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasPrefix(r.URL.Path, "/debug/pprof/") {
-			debugMux.ServeHTTP(w, r)
-		} else {
-			next.ServeHTTP(w, r)
+// startPProfServer starts a dedicated HTTP server for pprof endpoints.
+func (s *Service) startPProfServer(ctx context.Context) error {
+	if s.pprofEndpoint == "" {
+		return nil
+	}
+
+	s.pprofServer = &http.Server{
+		Addr:              s.pprofEndpoint,
+		Handler:           getPProfHandler(),
+		ReadHeaderTimeout: s.httpReadHeaderTimeout,
+	}
+
+	listener, err := net.Listen("tcp", s.pprofEndpoint)
+	if err != nil {
+		return fmt.Errorf("failed to start pprof server listener: %w", err)
+	}
+
+	s.wg.Add(1)
+	go func() {
+		defer s.wg.Done()
+
+		s.logger.Info(ctx, "starting pprof server", "addr", s.pprofEndpoint)
+		if err := s.pprofServer.Serve(listener); err != nil && err != http.ErrServerClosed {
+			s.logger.Error(ctx, "pprof server error", "error", err)
 		}
-	})
+	}()
+
+	return nil
 }
