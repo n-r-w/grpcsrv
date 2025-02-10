@@ -1,6 +1,7 @@
 module github.com/n-r-w/grpcsrv
 
 go 1.23
+toolchain go1.23.6
 
 require (
 	github.com/moznion/go-optional v0.12.0
@@ -45,7 +46,7 @@ require (
 	github.com/cenkalti/backoff/v5 v5.0.1 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.26.0
-	github.com/n-r-w/bootstrap v1.0.2-0.20250125184643-a00a8ba2ab1b
+	github.com/n-r-w/bootstrap v1.0.6
 	github.com/n-r-w/ctxlog v1.0.3
 	github.com/prometheus/client_golang v1.20.5
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.59.0
