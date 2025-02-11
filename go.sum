@@ -62,8 +62,8 @@ github.com/moznion/go-optional v0.12.0 h1:gM9YSR7kusSQHiaq2IDHU7WoJNGETT1NbuB15X
 github.com/moznion/go-optional v0.12.0/go.mod h1:UP85Bc+uliSDFDzN7Zw8D6gBO1bdPChKFpNu1DJfCqE=
 github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 h1:C3w9PqII01/Oq1c1nUAm88MOHcQC9l5mIlSMApZMrHA=
 github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822/go.mod h1:+n7T8mK8HuQTcFwEeznm/DIxMOiR9yIdICNftLE1DvQ=
-github.com/n-r-w/bootstrap v1.0.2-0.20250125184643-a00a8ba2ab1b h1:DQvg+7X28qI4ThcrdKMP2bo8tpZxBlFATMXc0GKAmPI=
-github.com/n-r-w/bootstrap v1.0.2-0.20250125184643-a00a8ba2ab1b/go.mod h1:b91IQT2BBrUxYx+Osf8KxbD5uoFDDiAApGVQEG3Y+wo=
+github.com/n-r-w/bootstrap v1.0.6 h1:HeH2OqO7L8xpNdC8QvOC5060g6rtKtlzOpwusGUbRpE=
+github.com/n-r-w/bootstrap v1.0.6/go.mod h1:nRyxPLGlb4wuQ4t0dWE514LYW/5URTtKqqOUOOzdcGU=
 github.com/n-r-w/ctxlog v1.0.3 h1:ZL+3CIhiSFIjT6HHu3bwLgsl9zPWJsdcdDJLtBZNqRY=
 github.com/n-r-w/ctxlog v1.0.3/go.mod h1:MZ7sxKTgLXL1pFrPjScPEXhqL1bv/qhqHhpjM1MVdgw=
 github.com/opentracing/opentracing-go v1.1.0/go.mod h1:UkNAQd3GIcIGf0SeVgPpRdFStlNbqXla1AfSYxPUl2o=
