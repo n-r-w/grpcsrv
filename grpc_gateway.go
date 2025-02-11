@@ -2,7 +2,6 @@ package grpcsrv
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -17,8 +16,6 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
-
-	gatewayfile "github.com/black-06/grpc-gateway-file"
 )
 
 // propagateTraceContext propagate trace from grpc-gateway to grpc. Without this magic, it doesn't work.
@@ -31,15 +28,6 @@ func propagateTraceContext(ctx context.Context, _ *http.Request) metadata.MD {
 func (s *Service) startHTTPGateway(ctx context.Context) error {
 	muxOptList := []runtime.ServeMuxOption{
 		runtime.WithMetadata(propagateTraceContext),
-	}
-
-	// Support for file upload/download through HTTP gateway
-	if s.httpFileSupport {
-		muxOptList = append(muxOptList,
-			gatewayfile.WithFileIncomingHeaderMatcher(),
-			gatewayfile.WithFileForwardResponseOption(),
-			gatewayfile.WithHTTPBodyMarshaler(),
-		)
 	}
 
 	if len(s.httpHeadersFromMetadata) > 0 {
@@ -147,12 +135,6 @@ func (s *Service) getJSONMarshallers() ([]runtime.ServeMuxOption, error) {
 
 		if _, ok := s.httpMarshallers[jsonContentType]; ok {
 			needDefaultJSONMarshaller = false
-		}
-
-		if _, ok := s.httpMarshallers[multipartForm]; ok && s.httpFileSupport {
-			// gatewayfile.WithHTTPBodyMarshaler() sets marshaller for multipart/form-data
-			return nil,
-				errors.New("http gateway: multipart/form-data marshaller is not supported with http file support")
 		}
 	}
 

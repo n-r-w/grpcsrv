@@ -41,7 +41,6 @@ require (
 )
 
 require (
-	github.com/black-06/grpc-gateway-file v0.1.2
 	github.com/cenkalti/backoff/v5 v5.0.1 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.26.0

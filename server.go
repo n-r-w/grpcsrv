@@ -40,7 +40,6 @@ type Service struct {
 
 	pprofEndpoint string
 
-	httpFileSupport         bool
 	httpDialOptions         []grpc.DialOption
 	httpMarshallers         map[string]grpc_runtime.Marshaler // content-type -> marshaler
 	httpHeadersFromMetadata []string

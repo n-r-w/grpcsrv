@@ -95,15 +95,6 @@ func WithRecover() Option {
 	}
 }
 
-// WithHTTPFileSupport enables file upload/download support through HTTP gateway.
-// Warning! Sets grpc stream delimiter to empty value,
-// therefore httpFileSupport cannot be used together with regular grpc stream methods.
-func WithHTTPFileSupport() Option {
-	return func(s *Service) {
-		s.httpFileSupport = true
-	}
-}
-
 // WithHTTPDialOptions sets options for HTTP gateway client when connecting to gRPC endpoint.
 // If not set, grpc.WithTransportCredentials(insecure.NewCredentials()) is used.
 func WithHTTPDialOptions(options ...grpc.DialOption) Option {
