@@ -120,13 +120,12 @@ func (s *Service) startHTTPGateway(ctx context.Context) error {
 }
 
 // get marshallers for gRPC gateway.
-func (s *Service) getJSONMarshallers() ([]runtime.ServeMuxOption, error) {
+func (s *Service) getJSONMarshallers() ([]runtime.ServeMuxOption, error) { //nolint:unparam // ok
 	var marshallers []runtime.ServeMuxOption
 
 	needDefaultJSONMarshaller := true
 	const (
 		jsonContentType = "application/json"
-		multipartForm   = "multipart/form-data"
 	)
 	if len(s.httpMarshallers) > 0 {
 		for contentType, marshaler := range s.httpMarshallers {
