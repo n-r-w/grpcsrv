@@ -10,7 +10,6 @@ import (
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
-	"github.com/n-r-w/ctxlog"
 	"github.com/rs/cors"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -42,7 +41,7 @@ func (s *Service) traceIDFromContext(ctx context.Context) (string, bool) {
 		return span.TraceID().String(), true
 	}
 
-	ctxlog.Debug(ctx, "traceID not found in context")
+	s.logger.Debug(ctx, "traceID not found in context")
 
 	return "", false
 }
