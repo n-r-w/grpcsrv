@@ -41,8 +41,6 @@ func (s *Service) traceIDFromContext(ctx context.Context) (string, bool) {
 		return span.TraceID().String(), true
 	}
 
-	s.logger.Debug(ctx, "traceID not found in context")
-
 	return "", false
 }
 
