@@ -234,12 +234,13 @@ func (s *Service) setTraceRouteHTTPMiddleware(next http.Handler) http.Handler {
 
 func (s *Service) registerHealthCheckEndpoints(ctx context.Context, mux *runtime.ServeMux) error {
 	if s.healthCheckHandler != nil {
+		// Register GET handlers for liveness and readiness
 		if err := mux.HandlePath(http.MethodGet, s.livenessHandlerPath,
 			func(w http.ResponseWriter, r *http.Request, _ map[string]string) {
 				s.healthCheckHandler.LiveEndpoint(w, r)
 			},
 		); err != nil {
-			return fmt.Errorf("%s. failed to register liveness handler: %w", s.name, err)
+			return fmt.Errorf("%s. failed to register GET liveness handler: %w", s.name, err)
 		}
 
 		if err := mux.HandlePath(http.MethodGet, s.readinessHandlerPath,
@@ -247,13 +248,49 @@ func (s *Service) registerHealthCheckEndpoints(ctx context.Context, mux *runtime
 				s.healthCheckHandler.ReadyEndpoint(w, r)
 			},
 		); err != nil {
-			return fmt.Errorf("%s. failed to register readiness handler: %w", s.name, err)
+			return fmt.Errorf("%s. failed to register GET readiness handler: %w", s.name, err)
 		}
+
+		// For HEAD requests, we'll handle them directly in the HTTP server middleware chain
+		// This will be added in the startHTTPGateway method
 
 		s.logger.Info(ctx, "health check endpoints registered")
 	}
 
 	return nil
+}
+
+// setHeadRequestMiddleware handles HEAD requests for health check endpoints.
+func (s *Service) setHeadRequestMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// If it's a HEAD request to one of our health endpoints, convert it to GET
+		// but use a response writer that doesn't write the body
+		if r.Method == http.MethodHead {
+			if r.URL.Path == s.livenessHandlerPath || r.URL.Path == s.readinessHandlerPath {
+				// Create a no-body response writer
+				noBodyWriter := &noBodyResponseWriter{ResponseWriter: w}
+				// Change method to GET for internal routing
+				r2 := *r
+				r2.Method = http.MethodGet
+				// Call the next handler with our no-body writer
+				next.ServeHTTP(noBodyWriter, &r2)
+				return
+			}
+		}
+		// For all other requests, use the original handler
+		next.ServeHTTP(w, r)
+	})
+}
+
+// noBodyResponseWriter is a http.ResponseWriter that doesn't write the body.
+type noBodyResponseWriter struct {
+	http.ResponseWriter
+}
+
+// Write is a no-op for HEAD requests.
+func (w *noBodyResponseWriter) Write(b []byte) (int, error) {
+	// Don't write the body for HEAD requests
+	return len(b), nil
 }
 
 // setCORSMiddleware adds CORS headers.

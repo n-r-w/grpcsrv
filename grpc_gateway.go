@@ -83,6 +83,9 @@ func (s *Service) startHTTPGateway(ctx context.Context) error {
 	targetHandlers = s.setCtxModifierHTTPMiddleware(targetHandlers)
 	targetHandlers = s.setCORSMiddleware(targetHandlers)
 
+	// Add support for HEAD requests to health check endpoints
+	targetHandlers = s.setHeadRequestMiddleware(targetHandlers)
+
 	// Health check support
 	if err = s.registerHealthCheckEndpoints(ctx, mux); err != nil {
 		return err
